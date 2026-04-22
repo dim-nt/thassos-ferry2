@@ -4,96 +4,56 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Thassos Ferry Timetable 2026</title>
-
+<link rel="manifest" href="manifest.json">
 <style>
 body{font-family:sans-serif;background:#f6f7fb;margin:0}
 .container{max-width:700px;margin:auto;padding:16px}
-.next{background:#2563eb;color:#fff;padding:20px;border-radius:16px;margin-bottom:12px}
-.row{display:flex;justify-content:space-between;padding:12px;border:1px solid #eee;border-radius:10px;margin-bottom:6px;background:#fff}
-.row.next{background:#eff6ff}
-.company{color:#64748b}
+.card{background:#fff;padding:16px;border-radius:12px;margin-bottom:10px}
+.next{background:#2563eb;color:#fff;padding:20px;border-radius:16px}
+.row{display:flex;justify-content:space-between;padding:10px;border-bottom:1px solid #eee}
 </style>
 </head>
-
 <body>
 <div class="container">
-
 <div class="next">
-  <div id="nextTime">--:--</div>
-  <div id="nextMeta">Loading...</div>
+<div id="nextTime">--:--</div>
+<div id="nextMeta">Loading...</div>
 </div>
-
 <div id="list"></div>
-
+<div class="card" id="weather"></div>
 </div>
 
 <script>
-const COS = {
-  TF:"Thassos Ferries",
-  TL:"Thassos Link",
-  AF:"Aneth Ferries",
-  TS:"Thassos Seaways"
-};
+const COS={TF:"Thassos Ferries",TL:"Thassos Link",AF:"Aneth Ferries",TS:"Thassos Seaways"};
+let timetable=null;
 
-let timetable = null;
-
-function toMin(t){
-  const [h,m]=t.split(':').map(Number);
-  return h*60+m;
-}
-
-function nowMin(){
-  const d=new Date();
-  return d.getHours()*60+d.getMinutes();
-}
-
-function getTodayIndex(weekStart){
-  const start = new Date(weekStart);
-  const now = new Date();
-  return Math.floor((now - start) / 86400000);
-}
+function toMin(t){const[h,m]=t.split(':');return h*60+m*1}
+function nowMin(){const d=new Date();return d.getHours()*60+d.getMinutes()}
 
 function render(){
-  if(!timetable) return;
+ if(!timetable)return;
+ const now=nowMin();
+ const schedule=timetable.from_keramoti.map(r=>({time:r[0],co:r[1]}));
+ const next=schedule.find(s=>toMin(s.time)>now);
 
-  const todayIdxRaw = getTodayIndex(timetable.week_start);
-  const todayIdx = Math.max(0, Math.min(6, todayIdxRaw));
+ document.getElementById("nextTime").textContent=next?next.time:"--";
+ document.getElementById("nextMeta").textContent=next?"Next ferry":"No more";
 
-  const now = nowMin();
-
-  const schedule = timetable.from_keramoti.map(row=>{
-    return {
-      time: row[0],
-      company: row[todayIdx + 1]
-    };
-  });
-
-  const next = schedule.find(s => toMin(s.time) > now);
-
-  document.getElementById("nextTime").textContent =
-    next ? next.time : "--";
-
-  document.getElementById("nextMeta").textContent =
-    next ? "Next ferry" : "No more ferries today";
-
-  document.getElementById("list").innerHTML =
-    schedule.map(s=>`
-      <div class="row ${next && s.time===next.time?'next':''}">
-        <span>${s.time}</span>
-        <span class="company">${COS[s.company] || "-"}</span>
-      </div>
-    `).join('');
+ document.getElementById("list").innerHTML=schedule.map(s=>`
+ <div class="row">
+   <span>${s.time}</span>
+   <span>${COS[s.co]}</span>
+ </div>`).join('');
 }
 
-fetch("timetable.json")
-  .then(r=>r.json())
-  .then(data=>{
-    timetable = data;
-    render();
-  });
+fetch("timetable.json").then(r=>r.json()).then(d=>{timetable=d;render()});
 
-setInterval(render,30000);
+fetch("https://api.open-meteo.com/v1/forecast?latitude=40.85&longitude=24.7&current_weather=true")
+.then(r=>r.json())
+.then(d=>{
+ const w=d.current_weather;
+ document.getElementById("weather").innerHTML=`Weather: ${w.temperature}°C Wind ${w.windspeed}km/h`;
+});
 </script>
-
 </body>
 </html>
